@@ -1,40 +1,50 @@
-# Définition d'un serveur réseau/
-# Attente de la connexion d'un client
 import socket, sys, time, json
 HOST = '127.0.0.1'
 PORT = 4567
 
-count_limit = 10
-count_msg_send = 0
-
-s2_HOST = ''
-s2_PORT = ''
+brokerHOST = ''
+brokerPORT = ''
 
 annuaire_HOST = HOST
 annuaire_PORT = 8080
 
-# Création du socket :
+# Création des sockets :
 serveurSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+brokerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 annuaireSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+messageSend = { "receiver" : "s2", "message" : '' }
+messageReceive = ''
+
+# Envoi d'un message
+def send_message(socket, message, connexion):
+    messageSend["message"] = message
+    socket.send(json.dumps(messageSend).encode("Utf8"))
+    print("S1>", messageSend["message"])
+    time.sleep(0.5)
+    get_message(socket, message, connexion)
+
+# Reception d'un message
+def get_message(socket, message, connexion):
+    messageReceive = connexion.recv(1024).decode("Utf8")
+    messageReceive = json.loads(messageReceive)
+    print("S1>", messageReceive["message"])
+    time.sleep(0.5)
+    send_message(socket, message, connexion)
 
 # Récupération des informations de l'annuaire
 try:
     annuaireSocket.connect((annuaire_HOST, annuaire_PORT))
+    annuaireArray = annuaireSocket.recv(1024).decode("Utf8")
+    annuaireArray = json.loads(annuaireArray)
+    brokerHOST = annuaireArray["s2"]["host"]
+    brokerPORT = annuaireArray["s2"]["port"]
+    print("Annuaire, adresse IP %s, port %s" % (brokerHOST, brokerPORT))
 except socket.error:
     print("La connexion a échoué.")
     sys.exit()
 
-while 1:
-    msgClient = annuaireSocket.recv(1024).decode("Utf8")
-    msgClient = json.loads(msgClient)
-    s2_HOST = msgClient["s2"]["host"]
-    s2_PORT = msgClient["s2"]["port"]
-    print("Annuaire, adresse IP %s, port %s" % (s2_HOST, s2_PORT))
-    break
-
-# Liaison du socket à une adresse précise :
+# Ouverture du serveur
 try:
     serveurSocket.bind((HOST, PORT))
 except socket.error:
@@ -50,30 +60,12 @@ while 1:
     print("Client connecté, adresse IP %s, port %s" % (adresse[0], adresse[1]))
 
     try:
-        clientSocket.connect((s2_HOST, s2_PORT))
+        brokerSocket.connect((brokerHOST, brokerPORT))
     except socket.error:
         print("La connexion a échoué.")
         sys.exit()
     
-    # Dialogue avec le client :
-    msgServeur = "PING"
-    clientSocket.send(msgServeur.encode("Utf8"))
-    count_msg_send = count_msg_send + 1
-    print("S1>", msgServeur)
-    time.sleep(0.5)
-    msgClient = connexion.recv(1024).decode("Utf8")
-    while 1:
-        print("S2>", msgClient)
-        if count_msg_send == count_limit:
-            msgServeur = "END"
-            clientSocket.send(msgServeur.encode("Utf8"))
-            break
-        msgServeur = "PING"
-        clientSocket.send(msgServeur.encode("Utf8"))
-        count_msg_send = count_msg_send + 1
-        time.sleep(0.5)
-        msgClient = connexion.recv(1024).decode("Utf8")
-        print("S1>", msgServeur)
+    send_message(brokerSocket, "PING", connexion)
         
     # Fermeture de la connexion :
     print("Connexion interrompue.")

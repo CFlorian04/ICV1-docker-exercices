@@ -1,20 +1,34 @@
-# Définition d'un serveur réseau/
-# Attente de la connexion d'un client
-import socket, sys, time
+import socket, sys, time, json
 HOST = '127.0.0.1'
 PORT = 4567
 
-count_limit = 10
-count_msg_send = 0
+serveurPongHOST = HOST
+serveurPongPORT = 5372
 
-s2_HOST = HOST
-s2_PORT = 5372
-
-# Création du socket :
+# Création des sockets :
 serveurSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+serveurPong = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Liaison du socket à une adresse précise :
+messageSend = { "receiver" : "s2", "message" : '' }
+messageReceive = ''
+
+# Envoi d'un message
+def send_message(socket, message, connexion):
+    messageSend["message"] = message
+    socket.send(json.dumps(messageSend).encode("Utf8"))
+    print("S1>", messageSend["message"])
+    time.sleep(0.5)
+    get_message(socket, message, connexion)
+
+# Reception d'un message
+def get_message(socket, message, connexion):
+    messageReceive = connexion.recv(1024).decode("Utf8")
+    messageReceive = json.loads(messageReceive)
+    print("S1>", messageReceive["message"])
+    time.sleep(0.5)
+    send_message(socket, message, connexion)
+
+# Ouverture du serveur
 try:
     serveurSocket.bind((HOST, PORT))
 except socket.error:
@@ -30,30 +44,12 @@ while 1:
     print("Client connecté, adresse IP %s, port %s" % (adresse[0], adresse[1]))
 
     try:
-        clientSocket.connect((s2_HOST, s2_PORT))
+        serveurPong.connect((serveurPongHOST, serveurPongPORT))
     except socket.error:
         print("La connexion a échoué.")
         sys.exit()
     
-    # Dialogue avec le client :
-    msgServeur = "PING"
-    clientSocket.send(msgServeur.encode("Utf8"))
-    count_msg_send = count_msg_send + 1
-    print("S1>", msgServeur)
-    time.sleep(0.5)
-    msgClient = connexion.recv(1024).decode("Utf8")
-    while 1:
-        print("S2>", msgClient)
-        if count_msg_send == count_limit:
-            msgServeur = "END"
-            clientSocket.send(msgServeur.encode("Utf8"))
-            break
-        msgServeur = "PING"
-        clientSocket.send(msgServeur.encode("Utf8"))
-        count_msg_send = count_msg_send + 1
-        time.sleep(0.5)
-        msgClient = connexion.recv(1024).decode("Utf8")
-        print("S1>", msgServeur)
+    send_message(serveurPong, "PING", connexion)
         
     # Fermeture de la connexion :
     print("Connexion interrompue.")
