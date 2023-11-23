@@ -1,9 +1,11 @@
 const http = require('http');
+const ip = require('ip');
 
 const requestDelay = 500; // ms
 
 const serverConfig = {
-  port: 5372,
+  host: 'localhost', // ip.address()
+  port: process.env.PORT,
   response: 'PONG',
   name: 'S2'
 };
@@ -15,13 +17,13 @@ const receiverConfig = {
 };
 
 const annuaireConfig = {
-  host: 'localhost',
+  host: 'serveurannuaire',//process.env.MEDIATOR_URL || 'annuaire-container',
   port: 8080
 };
 
 function raiseError(error) {
   console.error(serverConfig.name, "> Erreur d'envoi de requête :", error.message);
-  process.exit(1);
+  //process.exit(1);
 }
 
 // Envoyer une requête HTTP
@@ -78,12 +80,8 @@ function getAnnuaire() {
     res.on('end', () => {
       try {
         const serverList = JSON.parse(content);
-        //console.log(receiverConfig.name);
-        //console.log(serverList);
 
-        // Vérifier si le serveur cible existe dans la liste avant d'essayer d'y accéder
         if (serverList && serverList[receiverConfig.name]) {
-          //console.log(serverList[receiverConfig.name]);
 
           const targetServer = serverList[receiverConfig.name];
           receiverConfig.host = targetServer.host;
@@ -113,6 +111,7 @@ server.on('error', (error) => { raiseError(error) });
 server.listen(serverConfig.port, () => {
 
   console.log(serverConfig.name, "> Listening on PORT", serverConfig.port);
+  console.log(serverConfig.name, "> Open on http://" + serverConfig.host + ":" + serverConfig.port);
   getAnnuaire();
-  
+
 });

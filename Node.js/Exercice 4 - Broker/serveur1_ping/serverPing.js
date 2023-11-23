@@ -1,27 +1,29 @@
 const http = require('http');
+const ip = require('ip');
 
 const requestDelay = 500; // ms
 
 const serverConfig = {
-  port: 5372,
-  response: 'PONG',
-  name: 'S2'
+  host: 'localhost', // ip.address()
+  port: process.env.PORT,
+  response: 'PING',
+  name: 'S1'
 };
 
 const receiverConfig = {
   host: '',
   port: 0,
-  name: 'S1'
+  name: 'BR'
 };
 
 const annuaireConfig = {
-  host: 'localhost',
+  host: 'serveurannuaire',//process.env.MEDIATOR_URL || 'annuaire-container',
   port: 8080
 };
 
 function raiseError(error) {
   console.error(serverConfig.name, "> Erreur d'envoi de requête :", error.message);
-  process.exit(1);
+  //process.exit(1);
 }
 
 // Envoyer une requête HTTP
@@ -48,12 +50,14 @@ function sendRequest() {
   // Gestion des erreurs lors de l'envoi de la requête
   req.on('error', (error) => { raiseError(error) });
 
+  req.write(serverConfig.name+'>'+serverConfig.response)
+
   req.end(serverConfig.response);
 }
 
 const server = http.createServer((req, res) => {
   console.log(serverConfig.name, ">", serverConfig.response);
-  res.end(serverConfig.response);
+  res.end(serverConfig.name+'>'+serverConfig.response);
 
   setTimeout(() => {
     sendRequest();
@@ -78,18 +82,12 @@ function getAnnuaire() {
     res.on('end', () => {
       try {
         const serverList = JSON.parse(content);
-        //console.log(receiverConfig.name);
-        //console.log(serverList);
 
-        // Vérifier si le serveur cible existe dans la liste avant d'essayer d'y accéder
         if (serverList && serverList[receiverConfig.name]) {
-          //console.log(serverList[receiverConfig.name]);
 
           const targetServer = serverList[receiverConfig.name];
           receiverConfig.host = targetServer.host;
           receiverConfig.port = targetServer.port;
-
-          sendRequest();
 
         } else {
           console.log("Le serveur cible n'a pas été trouvé dans la liste.");
@@ -113,6 +111,7 @@ server.on('error', (error) => { raiseError(error) });
 server.listen(serverConfig.port, () => {
 
   console.log(serverConfig.name, "> Listening on PORT", serverConfig.port);
+  console.log(serverConfig.name, "> Open on http://" + serverConfig.host + ":" + serverConfig.port);
   getAnnuaire();
-  
+
 });

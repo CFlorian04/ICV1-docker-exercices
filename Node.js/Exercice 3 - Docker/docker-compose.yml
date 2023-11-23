@@ -1,0 +1,30 @@
+version: "3"
+services:
+  serveurping:
+    build: ./serveur1_ping
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./:/app*
+    environment:
+      - PORT=4567
+      - MEDIATOR_URL=http://host.docker.internal:8080
+  serveurpong:
+    build: ./serveur2_pong
+    ports:
+      - "5372:5372"
+    volumes:
+      - ./:/app*
+    environment:
+      - PORT=5372
+      - MEDIATOR_URL=http://host.docker.internal:8080
+  serveurannuaire:
+    build: ./serveur3_annuaire
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app*
+    environment:
+      - PORT=8080
+    
+    

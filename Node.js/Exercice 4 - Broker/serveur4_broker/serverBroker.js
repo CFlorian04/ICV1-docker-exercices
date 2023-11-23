@@ -1,27 +1,35 @@
 const http = require('http');
+const ip = require('ip');
 
 const requestDelay = 500; // ms
 
 const serverConfig = {
-  port: 4567,
+  host: 'localhost', // ip.address()
+  port: process.env.PORT,
   response: 'PING',
-  name: 'S1'
+  name: 'BR'
+};
+
+const senderConfig = {
+  host: '',
+  port: 0,
+  name: ''
 };
 
 const receiverConfig = {
   host: '',
   port: 0,
-  name: 'S2'
+  name: ''
 };
 
 const annuaireConfig = {
-  host: 'localhost',
+  host: 'serveurannuaire',//process.env.MEDIATOR_URL || 'annuaire-container',
   port: 8080
 };
 
 function raiseError(error) {
   console.error(serverConfig.name, "> Erreur d'envoi de requête :", error.message);
-  process.exit(1);
+  //process.exit(1);
 }
 
 // Envoyer une requête HTTP
@@ -41,7 +49,7 @@ function sendRequest() {
     });
 
     res.on('end', () => {
-      console.log(receiverConfig.name, ">", content);
+      console.log(serverConfig.name, ':', receiverConfig.name, ">", content);
     });
   });
 
@@ -52,15 +60,24 @@ function sendRequest() {
 }
 
 const server = http.createServer((req, res) => {
-  console.log(serverConfig.name, ">", serverConfig.response);
-  res.end(serverConfig.response);
+  let content = '';
 
-  setTimeout(() => {
-    sendRequest();
-  }, requestDelay);
+  req.on('data', (chunk) => {
+    content += chunk;
+  });
+
+  getAnnuaire('S1');
+
+  console.log(senderConfig);
+  console.log(receiverConfig);
+
+  console.log(serverConfig.name, ':', receiverConfig.name, ">", content);
+  
+  sendRequest();
+
 });
 
-function getAnnuaire() {
+function getAnnuaire(sender) {
   const options = {
     hostname: annuaireConfig.host,
     port: annuaireConfig.port,
@@ -78,21 +95,33 @@ function getAnnuaire() {
     res.on('end', () => {
       try {
         const serverList = JSON.parse(content);
-        //console.log(receiverConfig.name);
-        //console.log(serverList);
 
-        // Vérifier si le serveur cible existe dans la liste avant d'essayer d'y accéder
-        if (serverList && serverList[receiverConfig.name]) {
-          //console.log(serverList[receiverConfig.name]);
+        delete serverList[serverConfig.name]
 
-          const targetServer = serverList[receiverConfig.name];
-          receiverConfig.host = targetServer.host;
-          receiverConfig.port = targetServer.port;
+        if (serverList && serverList[sender]) {
+          const senderServer = serverList[sender];
+          senderConfig.name = senderServer.name;
+          senderConfig.host = senderServer.host;
+          senderConfig.port = senderServer.port;
 
-          //sendRequest();
+          console.log(senderConfig);
+
+          delete serverList[sender];
+
+          if (Object.keys(serverList)[0]) {
+            const receiverServer = serverList[Object.keys(serverList)[0]];
+            receiverConfig.name = receiverServer.name;
+            receiverConfig.host = receiverServer.host;
+            receiverConfig.port = receiverServer.port;
+
+            console.log(receiverConfig);
+
+          } else {
+            console.log("Le serveur cible n'a pas été trouvé dans la liste.");
+          }
 
         } else {
-          console.log("Le serveur cible n'a pas été trouvé dans la liste.");
+          console.log("Le serveur expéditeur n'a pas été trouvé dans la liste.");
         }
       } catch (error) {
         raiseError(error);
@@ -113,6 +142,6 @@ server.on('error', (error) => { raiseError(error) });
 server.listen(serverConfig.port, () => {
 
   console.log(serverConfig.name, "> Listening on PORT", serverConfig.port);
-  getAnnuaire();
+  console.log(serverConfig.name, "> Open on http://" + serverConfig.host + ":" + serverConfig.port);
 
 });
